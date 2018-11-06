@@ -31,7 +31,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     private static int DEFAULT_MAX_X_AXIS = 3;
     private static int DEFAULT_MIN_Y_AXIS = -5;
     private static int DEFAULT_MAX_Y_AXIS = 5;
-    private static String RENDER_THREAD_NAME = "FunctionGraphRenderThread";
+    private static final String RENDER_THREAD_NAME = "FunctionGraphRenderThread";
 
     private SurfaceHolder mHolder; // 用于控制SurfaceView
     //用于绘图的canvas
@@ -51,8 +51,8 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     //绘制线程和主线程间传递MotionEvent，确保线程安全
     private LinkedBlockingQueue<MotionEvent> mEventQueue = new LinkedBlockingQueue<>(1000);
     //当前控件宽高
-    private int width;
-    private int height;
+    private int mWidth;
+    private int mHeight;
     //子线程标志位
     private boolean mIsDrawing;
     //需要显示的函数表达式
@@ -61,7 +61,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
      * 屏幕显示的x,y轴的最值
      */
     private float mMinXMath = DEFAULT_MIN_X_AXIS, mMaxXMath = DEFAULT_MAX_X_AXIS, mMinYMath = DEFAULT_MIN_Y_AXIS, mMaxYMath = DEFAULT_MAX_Y_AXIS;
-    private float startX, startY;
+    private float mLastTouchX, mLastTouchY;
 
     public FunctionGraph(Context context) {
         super(context);
@@ -92,6 +92,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 
         mFunctionPaint.setStrokeWidth(DisplayUtil.dpTpPx(getContext(), 2));
         mFunctionPaint.setAntiAlias(true);
+        mFunctionPaint.setColor(Color.RED);
 
 //        setFocusable(true);
 //        setFocusableInTouchMode(true);
@@ -106,6 +107,8 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         mIsDrawing = true;
+        mWidth = getWidth();
+        mHeight = getHeight();
         Thread t = new Thread(this);
         t.setName(RENDER_THREAD_NAME);
         t.start();
@@ -113,7 +116,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-
+        mIsDrawing = true;
     }
 
     @Override
@@ -136,27 +139,30 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 
             switch (action) {
                 case MotionEvent.ACTION_DOWN:
-                    startX = event.getX();
-                    startY = event.getY();
+                    mLastTouchX = event.getX();
+                    mLastTouchY = event.getY();
                     break;
                 case MotionEvent.ACTION_MOVE:
-                    float x = startX - event.getX();
-                    float y = event.getY() - startY;
-                    double difX = (mMaxXMath - mMinXMath) * x / width;
-                    double difY = (mMaxYMath - mMinYMath) * y / height;
-                    mMinXMath += difX;
-                    mMaxXMath += difX;
-                    mMinYMath += difY;
-                    mMaxYMath += difY;
-                    startX = event.getX();
-                    startY = event.getY();
+                    float x = mLastTouchX - event.getX();
+                    //注意数学和屏幕像素坐标方向相反
+                    float y = event.getY() - mLastTouchY;
+                    double difXMath = (mMaxXMath - mMinXMath) * x / mWidth;
+                    double difYMath = (mMaxYMath - mMinYMath) * y / mHeight;
+                    mMinXMath += difXMath;
+                    mMaxXMath += difXMath;
+                    mMinYMath += difYMath;
+                    mMaxYMath += difYMath;
+                    mLastTouchX = event.getX();
+                    mLastTouchY = event.getY();
                     break;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
+                    mLastTouchX = event.getX();
+                    mLastTouchY = event.getY();
                     break;
             }
         } catch (InterruptedException e) {
-            Log.e(TAG + "mEventQueue take", e.getMessage());
+            Log.e(TAG + Thread.currentThread() + " mEventQueue take", e.getMessage());
         }
     }
 
@@ -165,7 +171,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         try {
             mEventQueue.put(event);
         } catch (InterruptedException e) {
-            Log.e(TAG + "mEventQueue put", e.getMessage());
+            Log.e(TAG + Thread.currentThread() + " mEventQueue put", e.getMessage());
         }
 
         return true;
@@ -186,14 +192,13 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 
     private void drawGraph(Canvas canvas) {
         canvas.drawColor(Color.WHITE);
-        width = getWidth();
-        height = getHeight();
-        canvas.save();
+        //   canvas.save();
         //将画布原点移动到坐标系原点
-//        canvas.translate(width / 2, height / 2);
+//        canvas.translate(mWidth / 2, mHeight / 2);
         drawAxis(canvas);
+        drawFunction(canvas);
 
-        canvas.restore();
+        //   canvas.restore();
     }
 
     /**
@@ -225,14 +230,14 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
             if (yPixel < 0) {
                 //设定y轴的最小垂直坐标。当图表拖拽到y轴下方的时候，防止y轴往上滑出屏幕
                 yPixel = 0;
-            } else if (yPixel > height - 20) {
+            } else if (yPixel > mHeight - 20) {
                 //设定y轴的最大垂直坐标。当图表拖拽到y轴上方的时候，防止y轴往下滑出屏幕
-                yPixel = height;
+                yPixel = mHeight;
                 //y轴在底部则文字显示于坐标轴上方
                 yTextDistanceToAxis = -fontHeight;
             }
             //从屏幕像素纵坐标0画一条经过屏幕像素xValue的直线到最底部（这里是画出垂直的提示轴即网格线）
-            canvas.drawLine(xPixel, 0, xPixel, height, mAxisHintPaint);
+            canvas.drawLine(xPixel, 0, xPixel, mHeight, mAxisHintPaint);
             //需要标注的坐标值
             String text = mDecimalFormat.format(xMath);
             //写坐标值（在纵坐标为y，即对应的数学纵坐标为0的地方画）
@@ -254,13 +259,13 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
             if (xPixel < 0) {
                 //设定x轴的最小垂直坐标。当图表拖拽到x轴右方的时候，防止x轴往左滑出屏幕
                 xPixel = 0;
-            } else if (xPixel > width - 20) {
+            } else if (xPixel > mWidth - 20) {
                 //设定x轴的最大垂直坐标。当图表拖拽到x轴左方的时候，防止x轴往右滑出屏幕
-                xPixel = width;
+                xPixel = mWidth;
                 xTextDistanceToAxis = -fontWidth;
             }
             //从屏幕像素横坐标0画一条经过屏幕像素y1的直线到最右（这里是画出水平的提示轴即网格线）
-            canvas.drawLine(0, yPixel, width, yPixel, mAxisHintPaint);
+            canvas.drawLine(0, yPixel, mWidth, yPixel, mAxisHintPaint);
             String text = mDecimalFormat.format(yMath);
             //写坐标值（在纵坐标为y，即对应的数学横坐标为0的地方画）
             canvas.drawText(text, xPixel + xTextDistanceToAxis, yPixel, mAxisValuePaint);
@@ -269,9 +274,36 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         int xAxisPixel = mapXMathToPixel(0);
         int yAxisPixel = mapYMathToPixel(0);
         //画横纵坐标轴
-        canvas.drawLine(xAxisPixel, 0, xAxisPixel, height, mAxisPaint);
-        canvas.drawLine(0, yAxisPixel, width, yAxisPixel, mAxisPaint);
+        canvas.drawLine(xAxisPixel, 0, xAxisPixel, mHeight, mAxisPaint);
+        canvas.drawLine(0, yAxisPixel, mWidth, yAxisPixel, mAxisPaint);
     }
+
+    /**
+     * 算出水平每个像素点对应的函数的点，然后连起来
+     *
+     * @param canvas
+     */
+    private void drawFunction(Canvas canvas) {
+        //最小横坐标对应的纵坐标的值
+        double yFirstMath = Math.sin(mMinXMath);
+        double ySecondMath = yFirstMath;
+        //水平遍历每个像素.y1是前一个点的纵坐标，y2是后一个点的纵坐标，j为横坐标
+        for (int j = 0; j < mWidth; j++) {
+            yFirstMath = ySecondMath;
+            //根据像素得到对应的横坐标的值，再得到对应的纵坐标的值
+            ySecondMath = Math.sin(mMinXMath + ((double) j + 1) * (mMaxXMath - mMinXMath) / mWidth);
+            if (yFirstMath != Double.POSITIVE_INFINITY && ySecondMath != Double.POSITIVE_INFINITY) {
+                //这个if意义？
+
+                //如果两个点纵坐标差太大则不画？？
+                if (!((yFirstMath > 20) && (ySecondMath < -20)) && !((yFirstMath < -20) && (ySecondMath > 20))) {
+                    //前后两个点连起来
+                    canvas.drawLine(j, mapYMathToPixel(yFirstMath), j + 1, mapYMathToPixel(ySecondMath), mFunctionPaint);
+                }
+            }
+        }
+    }
+
 
     /**
      * 将数值x坐标值映射为屏幕像素x坐标
@@ -280,7 +312,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
      * @return
      */
     private int mapXMathToPixel(double x) {
-        return (int) (width * (x - mMinXMath) / (mMaxXMath - mMinXMath));
+        return (int) (mWidth * (x - mMinXMath) / (mMaxXMath - mMinXMath));
     }
 
     /**
@@ -290,7 +322,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
      * @return
      */
     private int mapYMathToPixel(double y) {
-        return (int) (height - height * (y - mMinYMath) / (mMaxYMath - mMinYMath));
+        return (int) (mHeight - mHeight * (y - mMinYMath) / (mMaxYMath - mMinYMath));
     }
 
 }
