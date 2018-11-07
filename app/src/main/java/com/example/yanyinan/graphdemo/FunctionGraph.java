@@ -8,9 +8,12 @@ import android.graphics.Typeface;
 import android.text.TextPaint;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.ViewConfiguration;
+import android.widget.OverScroller;
 
 import com.example.yanyinan.graphdemo.util.DecimalFactory;
 import com.example.yanyinan.graphdemo.util.DisplayUtil;
@@ -55,6 +58,11 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     private int mHeight;
     //子线程标志位
     private boolean mIsDrawing;
+
+    private int mTouchSlop;
+
+
+    GestureDetector mGestureDetector;
     //需要显示的函数表达式
     private String computeExpression;
     /**
@@ -62,6 +70,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
      */
     private float mMinXMath = DEFAULT_MIN_X_AXIS, mMaxXMath = DEFAULT_MAX_X_AXIS, mMinYMath = DEFAULT_MIN_Y_AXIS, mMaxYMath = DEFAULT_MAX_Y_AXIS;
     private float mLastTouchX, mLastTouchY;
+    private double mLastFingerDistance;
 
     public FunctionGraph(Context context) {
         super(context);
@@ -93,6 +102,45 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         mFunctionPaint.setStrokeWidth(DisplayUtil.dpTpPx(getContext(), 2));
         mFunctionPaint.setAntiAlias(true);
         mFunctionPaint.setColor(Color.RED);
+
+        ViewConfiguration vc = ViewConfiguration.get(getContext());
+        mTouchSlop = vc.getScaledTouchSlop();
+
+        mGestureDetector = new GestureDetector(new GestureDetector.OnGestureListener() {
+            @Override
+            public boolean onDown(MotionEvent e) {
+                return true;
+            }
+
+            @Override
+            public void onShowPress(MotionEvent e) {
+
+            }
+
+            @Override
+            public boolean onSingleTapUp(MotionEvent e) {
+                return false;
+            }
+
+            @Override
+            public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+                return false;
+            }
+
+            @Override
+            public void onLongPress(MotionEvent e) {
+
+            }
+
+            @Override
+            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+                Log.d(TAG + "onFling", "velocityX： " + velocityX + ",velocityY: " + velocityY);
+
+                OverScroller overScroller = new OverScroller(getContext());
+                //  overScroller.fling();
+                return false;
+            }
+        });
 
 //        setFocusable(true);
 //        setFocusableInTouchMode(true);
@@ -126,8 +174,8 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 
     @Override
     public void run() {
+        refreshView();
         while (mIsDrawing) {
-            startDraw();
             handleTouchEvent();
         }
     }
@@ -135,30 +183,51 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     private void handleTouchEvent() {
         try {
             MotionEvent event = mEventQueue.take();
-            int action = event.getAction();
+//            mGestureDetector.onTouchEvent(event);
+
+            int action = event.getActionMasked();
 
             switch (action) {
                 case MotionEvent.ACTION_DOWN:
                     mLastTouchX = event.getX();
                     mLastTouchY = event.getY();
                     break;
+                case MotionEvent.ACTION_POINTER_DOWN:
+                        if (event.getPointerCount() == 2){
+                            mLastFingerDistance = getDistanceBetweenFingers(event);
+                        }
                 case MotionEvent.ACTION_MOVE:
-                    float x = mLastTouchX - event.getX();
-                    //注意数学和屏幕像素坐标方向相反
-                    float y = event.getY() - mLastTouchY;
-                    double difXMath = (mMaxXMath - mMinXMath) * x / mWidth;
-                    double difYMath = (mMaxYMath - mMinYMath) * y / mHeight;
-                    mMinXMath += difXMath;
-                    mMaxXMath += difXMath;
-                    mMinYMath += difYMath;
-                    mMaxYMath += difYMath;
-                    mLastTouchX = event.getX();
-                    mLastTouchY = event.getY();
-                    break;
+                    switch (event.getPointerCount()) {
+                        case 1:
+                            float difXPixel = mLastTouchX - event.getX();
+                            //注意数学和屏幕像素坐标方向相反
+                            float difYPixel = event.getY() - mLastTouchY;
+                            double difXMath = (mMaxXMath - mMinXMath) * difXPixel / mWidth;
+                            double difYMath = (mMaxYMath - mMinYMath) * difYPixel / mHeight;
+                            mMinXMath += difXMath;
+                            mMaxXMath += difXMath;
+                            mMinYMath += difYMath;
+                            mMaxYMath += difYMath;
+                            mLastTouchX = event.getX();
+                            mLastTouchY = event.getY();
+                            refreshView();
+                            break;
+                        case 2:
+                            double fingersDistance = getDistanceBetweenFingers(event);
+                            //缩放倍数
+                            double scale = mLastFingerDistance/fingersDistance;
+                            mMaxXMath *= scale;
+                            mMaxYMath *= scale;
+                            mMinXMath *= scale;
+                            mMinYMath *= scale;
+                            mLastFingerDistance = getDistanceBetweenFingers(event);
+                            refreshView();
+                            break;
+                    }
+
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
-                    mLastTouchX = event.getX();
-                    mLastTouchY = event.getY();
+
                     break;
             }
         } catch (InterruptedException e) {
@@ -177,7 +246,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         return true;
     }
 
-    private void startDraw() {
+    private void refreshView() {
         try {
             mCanvas = mHolder.lockCanvas();
             drawGraph(mCanvas);
@@ -302,6 +371,18 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
                 }
             }
         }
+    }
+
+    /**
+     * 计算两个手指之间的距离。
+     *
+     * @param event
+     * @return 两个手指之间的距离
+     */
+    private double getDistanceBetweenFingers(MotionEvent event) {
+        float disX = Math.abs(event.getX(0) - event.getX(1));
+        float disY = Math.abs(event.getY(0) - event.getY(1));
+        return Math.sqrt(disX * disX + disY * disY);
     }
 
 
