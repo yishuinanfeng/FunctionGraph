@@ -107,7 +107,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         mTouchSlop = vc.getScaledTouchSlop();
 
         /////////////
-        computeExpression = "x+2";
+        computeExpression = "x^2";
         computeExpression = StringCalculator.insetBlanks(computeExpression);
 
 
@@ -369,7 +369,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         //水平遍历每个像素.y1是前一个点的纵坐标，y2是后一个点的纵坐标，j为横坐标
         long a = System.nanoTime();
         //为了加速绘制，每两个像素点进行遍历
-        for (int j = 0; j < mWidth; j = j+2) {
+        for (int j = 0; j < mWidth; j = j + 2) {
             yFirstMath = ySecondMath;
             //根据像素得到对应的横坐标的值，再得到对应的纵坐标的值
             //  ySecondMath = Math.sin(mMinXMath + ((double) j + 1) * (mMaxXMath - mMinXMath) / mWidth);
