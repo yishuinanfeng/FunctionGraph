@@ -15,11 +15,14 @@ import android.view.SurfaceView;
 import android.view.ViewConfiguration;
 import android.widget.OverScroller;
 
+import com.example.yanyinan.graphdemo.calculate.StringCalculator;
 import com.example.yanyinan.graphdemo.util.DecimalFactory;
 import com.example.yanyinan.graphdemo.util.DisplayUtil;
 
 import java.text.DecimalFormat;
 import java.util.concurrent.LinkedBlockingQueue;
+
+import evaluator.MathEvaluator;
 
 
 /**
@@ -145,6 +148,9 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 //        setFocusable(true);
 //        setFocusableInTouchMode(true);
 //        this.setKeepScreenOn(true);
+
+
+        computeExpression = "x+2";
     }
 
     @Override
@@ -193,9 +199,9 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
                     mLastTouchY = event.getY();
                     break;
                 case MotionEvent.ACTION_POINTER_DOWN:
-                        if (event.getPointerCount() == 2){
-                            mLastFingerDistance = getDistanceBetweenFingers(event);
-                        }
+                    if (event.getPointerCount() == 2) {
+                        mLastFingerDistance = getDistanceBetweenFingers(event);
+                    }
                 case MotionEvent.ACTION_MOVE:
                     switch (event.getPointerCount()) {
                         case 1:
@@ -215,12 +221,15 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
                         case 2:
                             double fingersDistance = getDistanceBetweenFingers(event);
                             //缩放倍数
-                            double scale = mLastFingerDistance/fingersDistance;
+                            double scale = mLastFingerDistance / fingersDistance;
+                            if (scale < 0.1){
+                                return;
+                            }
                             mMaxXMath *= scale;
                             mMaxYMath *= scale;
                             mMinXMath *= scale;
                             mMinYMath *= scale;
-                            mLastFingerDistance = getDistanceBetweenFingers(event);
+                            mLastFingerDistance = fingersDistance;
                             refreshView();
                             break;
                     }
@@ -357,13 +366,20 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         double yFirstMath = Math.sin(mMinXMath);
         double ySecondMath = yFirstMath;
         //水平遍历每个像素.y1是前一个点的纵坐标，y2是后一个点的纵坐标，j为横坐标
+        long a = System.currentTimeMillis();
+
         for (int j = 0; j < mWidth; j++) {
             yFirstMath = ySecondMath;
             //根据像素得到对应的横坐标的值，再得到对应的纵坐标的值
-            ySecondMath = Math.sin(mMinXMath + ((double) j + 1) * (mMaxXMath - mMinXMath) / mWidth);
-            if (yFirstMath != Double.POSITIVE_INFINITY && ySecondMath != Double.POSITIVE_INFINITY) {
-                //这个if意义？
+          //  ySecondMath = Math.sin(mMinXMath + ((double) j + 1) * (mMaxXMath - mMinXMath) / mWidth);
 
+            double xMath = mMinXMath + ((double) j + 1) * (mMaxXMath - mMinXMath) / mWidth;
+            String input = computeExpression.replace("x", String.valueOf(xMath));
+
+            Log.d(TAG + "calculate input: ",input);
+            ySecondMath = StringCalculator.evaluateExpression(input);
+
+            if (yFirstMath != Double.POSITIVE_INFINITY && ySecondMath != Double.POSITIVE_INFINITY) {
                 //如果两个点纵坐标差太大则不画？？
                 if (!((yFirstMath > 20) && (ySecondMath < -20)) && !((yFirstMath < -20) && (ySecondMath > 20))) {
                     //前后两个点连起来
@@ -371,6 +387,8 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
                 }
             }
         }
+
+        Log.d(TAG + "calculate time",System.currentTimeMillis() - a +"");
     }
 
     /**
