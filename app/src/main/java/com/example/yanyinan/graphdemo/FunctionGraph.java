@@ -1,5 +1,6 @@
 package com.example.yanyinan.graphdemo;
 
+import android.app.Activity;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -30,11 +31,12 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback, Runnable {
     private final String TAG = FunctionGraph.class.getSimpleName();
 
-    private static int DEFAULT_MIN_X_AXIS = -3;
-    private static int DEFAULT_MAX_X_AXIS = 3;
-    private static int DEFAULT_MIN_Y_AXIS = -5;
-    private static int DEFAULT_MAX_Y_AXIS = 5;
+    private static int DEFAULT_MIN_X_AXIS = -10;
+    private static int DEFAULT_MAX_X_AXIS = 10;
+    private static int DEFAULT_MIN_Y_AXIS = -10;
+    private static int DEFAULT_MAX_Y_AXIS = 10;
     private static final String RENDER_THREAD_NAME = "FunctionGraphRenderThread";
+    private static final String X_VARIABLE = "x";
 
     private SurfaceHolder mHolder; // 用于控制SurfaceView
     //用于绘图的canvas
@@ -68,12 +70,14 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     /**
      * 屏幕显示的x,y轴的最值
      */
-    private float mMinXMath = DEFAULT_MIN_X_AXIS, mMaxXMath = DEFAULT_MAX_X_AXIS, mMinYMath = DEFAULT_MIN_Y_AXIS, mMaxYMath = DEFAULT_MAX_Y_AXIS;
+    private double mMinXMath = DEFAULT_MIN_X_AXIS, mMaxXMath = DEFAULT_MAX_X_AXIS, mMinYMath = DEFAULT_MIN_Y_AXIS, mMaxYMath = DEFAULT_MAX_Y_AXIS;
+    private float mScreenHeightWidthRatio;
     private float mLastTouchX, mLastTouchY;
     private double mLastFingerDistance;
 
-    public FunctionGraph(Context context) {
+    public FunctionGraph(Context context, float screenHeightWidthRatio) {
         super(context);
+        mScreenHeightWidthRatio = screenHeightWidthRatio;
         init();
     }
 
@@ -107,7 +111,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         mTouchSlop = vc.getScaledTouchSlop();
 
         /////////////
-        computeExpression = "1 - sin(x) + 5";
+        computeExpression = "sin(x) + 50";
         computeExpression = StringCalculator.insetBlanks(computeExpression);
 
 
@@ -180,10 +184,44 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 
     @Override
     public void run() {
+        setMaximumValueForYAxis();
         refreshView();
         while (mIsDrawing) {
             handleTouchEvent();
         }
+    }
+
+    private void setMaximumValueForYAxis() {
+        //最小横坐标对应的纵坐标的值
+        String firstXInput = computeExpression.replace("x", String.valueOf(mMinXMath));
+        double yFirstMath = StringCalculator.evaluateExpression(firstXInput);
+        mMaxYMath = yFirstMath;
+        mMinYMath = yFirstMath;
+
+        //水平遍历每个像素.y1是前一个点的纵坐标，y2是后一个点的纵坐标，j为横坐标
+        long a = System.nanoTime();
+        //为了加速绘制，每两个像素点进行遍历
+        for (int j = 0; j < mWidth; j = j + 2) {
+
+            double xMath = mMinXMath + ((double) j + 1) * (mMaxXMath - mMinXMath) / mWidth;
+            String input = computeExpression.replace(X_VARIABLE, String.valueOf(xMath));
+
+            yFirstMath = StringCalculator.evaluateExpression(input);
+            if (mMaxYMath < yFirstMath) {
+                mMaxYMath = yFirstMath;
+            } else if (mMinYMath > yFirstMath) {
+                mMinYMath = yFirstMath;
+            }
+
+        }
+
+        double maxAbs = Math.abs(mMaxYMath) > Math.abs(mMinYMath) ? mMaxYMath * 1.5 : mMinYMath * 1.5;
+        mMaxYMath = maxAbs;
+        mMinYMath = -maxAbs;
+        mMaxXMath = mMaxYMath / mScreenHeightWidthRatio;
+        mMinXMath = mMinYMath / mScreenHeightWidthRatio;
+
+
     }
 
     private void handleTouchEvent() {
@@ -366,6 +404,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         String firstXInput = computeExpression.replace("x", String.valueOf(mMinXMath));
         double yFirstMath = StringCalculator.evaluateExpression(firstXInput);
         double ySecondMath = yFirstMath;
+
         //水平遍历每个像素.y1是前一个点的纵坐标，y2是后一个点的纵坐标，j为横坐标
         long a = System.nanoTime();
         //为了加速绘制，每两个像素点进行遍历
@@ -376,12 +415,13 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 
             double xMath = mMinXMath + ((double) j + 1) * (mMaxXMath - mMinXMath) / mWidth;
 
-            String input = computeExpression.replace("x", String.valueOf(xMath));
+            String input = computeExpression.replace(X_VARIABLE, String.valueOf(xMath));
 
             Log.d(TAG + "calculate input: ", input);
 
             long a2 = System.nanoTime();
             ySecondMath = StringCalculator.evaluateExpression(input);
+
             Log.d(TAG + " calculate evaluateExpression", System.nanoTime() - a2 + "");
 
             if (yFirstMath != Double.POSITIVE_INFINITY && ySecondMath != Double.POSITIVE_INFINITY) {
