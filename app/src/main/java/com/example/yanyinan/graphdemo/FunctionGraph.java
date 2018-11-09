@@ -1,6 +1,5 @@
 package com.example.yanyinan.graphdemo;
 
-import android.app.Activity;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -35,6 +34,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     private static int DEFAULT_MAX_X_AXIS = 10;
     private static int DEFAULT_MIN_Y_AXIS = -10;
     private static int DEFAULT_MAX_Y_AXIS = 10;
+    private static int DEFAULT_STEP_COUNT = 10;
     private static final String RENDER_THREAD_NAME = "FunctionGraphRenderThread";
     private static final String X_VARIABLE = "x";
 
@@ -62,11 +62,11 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     private boolean mIsDrawing;
 
     private int mTouchSlop;
-
+    private boolean isTwoFingerMode;
 
     GestureDetector mGestureDetector;
     //需要显示的函数表达式
-    private String computeExpression;
+    private String mComputeExpression;
     /**
      * 屏幕显示的x,y轴的最值
      */
@@ -75,9 +75,10 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     private float mLastTouchX, mLastTouchY;
     private double mLastFingerDistance;
 
-    public FunctionGraph(Context context, float screenHeightWidthRatio) {
+    public FunctionGraph(Context context, float screenHeightWidthRatio, String computeExpression) {
         super(context);
         mScreenHeightWidthRatio = screenHeightWidthRatio;
+        mComputeExpression = computeExpression;
         init();
     }
 
@@ -111,8 +112,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         mTouchSlop = vc.getScaledTouchSlop();
 
         /////////////
-        computeExpression = "sin(x) + 50";
-        computeExpression = StringCalculator.insetBlanks(computeExpression);
+        mComputeExpression = StringCalculator.insetBlanks(mComputeExpression);
 
 
         mGestureDetector = new GestureDetector(new GestureDetector.OnGestureListener() {
@@ -191,9 +191,12 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         }
     }
 
+    /**
+     * 通过函数在指定横坐标范围的纵坐标最大最小值确定y轴的长度
+     */
     private void setMaximumValueForYAxis() {
         //最小横坐标对应的纵坐标的值
-        String firstXInput = computeExpression.replace("x", String.valueOf(mMinXMath));
+        String firstXInput = mComputeExpression.replace(X_VARIABLE, String.valueOf(mMinXMath));
         double yFirstMath = StringCalculator.evaluateExpression(firstXInput);
         mMaxYMath = yFirstMath;
         mMinYMath = yFirstMath;
@@ -204,7 +207,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         for (int j = 0; j < mWidth; j = j + 2) {
 
             double xMath = mMinXMath + ((double) j + 1) * (mMaxXMath - mMinXMath) / mWidth;
-            String input = computeExpression.replace(X_VARIABLE, String.valueOf(xMath));
+            String input = mComputeExpression.replace(X_VARIABLE, String.valueOf(xMath));
 
             yFirstMath = StringCalculator.evaluateExpression(input);
             if (mMaxYMath < yFirstMath) {
@@ -212,16 +215,18 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
             } else if (mMinYMath > yFirstMath) {
                 mMinYMath = yFirstMath;
             }
-
         }
 
-        double maxAbs = Math.abs(mMaxYMath) > Math.abs(mMinYMath) ? mMaxYMath * 1.5 : mMinYMath * 1.5;
+        double maxAbs = Math.abs(mMaxYMath) > Math.abs(mMinYMath) ? Math.abs(mMaxYMath) * 1.5 : Math.abs(mMinYMath) * 1.5;
         mMaxYMath = maxAbs;
         mMinYMath = -maxAbs;
         mMaxXMath = mMaxYMath / mScreenHeightWidthRatio;
         mMinXMath = mMinYMath / mScreenHeightWidthRatio;
 
-
+        Log.d(TAG + "mMaxYMath: ",mMaxYMath + "");
+        Log.d(TAG + "mMinYMath: ",mMinYMath + "");
+        Log.d(TAG + "mMaxXMath: ",mMaxXMath + "");
+        Log.d(TAG + "mMinXMath: ",mMinXMath + "");
     }
 
     private void handleTouchEvent() {
@@ -238,11 +243,15 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
                     break;
                 case MotionEvent.ACTION_POINTER_DOWN:
                     if (event.getPointerCount() == 2) {
+                        isTwoFingerMode = true;
                         mLastFingerDistance = getDistanceBetweenFingers(event);
                     }
                 case MotionEvent.ACTION_MOVE:
                     switch (event.getPointerCount()) {
                         case 1:
+                            if (isTwoFingerMode){
+                                return;
+                            }
                             float difXPixel = mLastTouchX - event.getX();
                             //注意数学和屏幕像素坐标方向相反
                             float difYPixel = event.getY() - mLastTouchY;
@@ -272,9 +281,13 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
                             break;
                     }
 
+                case MotionEvent.ACTION_POINTER_UP:
+
+                    break;
+
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
-
+                    isTwoFingerMode = false;
                     break;
             }
         } catch (InterruptedException e) {
@@ -326,7 +339,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         //需要画的x轴坐标数量长度
         final double lengthX = (mMaxXMath - mMinXMath);
         //每格表示的数量值
-        final double stepLength = Double.parseDouble(DecimalFactory.round(lengthX / 8, 2));
+        final double stepLength = Double.parseDouble(DecimalFactory.round(lengthX / DEFAULT_STEP_COUNT, 2));
         //负数坐标X轴数量长度
         final double minXInteger = (Math.round(mMinXMath / stepLength)) * stepLength;
         //正数坐标X轴数量长度
@@ -401,7 +414,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
      */
     private void drawFunction(Canvas canvas) {
         //最小横坐标对应的纵坐标的值
-        String firstXInput = computeExpression.replace("x", String.valueOf(mMinXMath));
+        String firstXInput = mComputeExpression.replace("x", String.valueOf(mMinXMath));
         double yFirstMath = StringCalculator.evaluateExpression(firstXInput);
         double ySecondMath = yFirstMath;
 
@@ -415,14 +428,14 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 
             double xMath = mMinXMath + ((double) j + 1) * (mMaxXMath - mMinXMath) / mWidth;
 
-            String input = computeExpression.replace(X_VARIABLE, String.valueOf(xMath));
+            String input = mComputeExpression.replace(X_VARIABLE, String.valueOf(xMath));
 
             Log.d(TAG + "calculate input: ", input);
 
             long a2 = System.nanoTime();
             ySecondMath = StringCalculator.evaluateExpression(input);
 
-            Log.d(TAG + " calculate evaluateExpression", System.nanoTime() - a2 + "");
+            Log.d("calculate Expression", System.nanoTime() - a2 + "");
 
             if (yFirstMath != Double.POSITIVE_INFINITY && ySecondMath != Double.POSITIVE_INFINITY) {
                 //如果两个点纵坐标差太大则不画？？
@@ -433,7 +446,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
             }
         }
 
-        Log.d(TAG + " calculate time", System.nanoTime() - a + "");
+        Log.d(TAG + " calculate whole time", System.nanoTime() - a + "");
     }
 
     /**
