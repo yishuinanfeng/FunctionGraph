@@ -107,7 +107,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         mTouchSlop = vc.getScaledTouchSlop();
 
         /////////////
-        computeExpression = "x^2";
+        computeExpression = "1 - sin(x) + 5";
         computeExpression = StringCalculator.insetBlanks(computeExpression);
 
 
