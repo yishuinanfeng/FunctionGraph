@@ -11,6 +11,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         float screenHeightWidthRatio = DisplayUtil.getScreenHeightWidthRatio(this);
-        setContentView(new FunctionGraph(this,screenHeightWidthRatio,"sin(x)"));
+        setContentView(new FunctionGraph(this,screenHeightWidthRatio,"sin(x) + cos(x)"));
     }
 }

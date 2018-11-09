@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Typeface;
 import android.text.TextPaint;
 import android.util.AttributeSet;
@@ -106,6 +107,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 
         mFunctionPaint.setStrokeWidth(DisplayUtil.dpTpPx(getContext(), 2));
         mFunctionPaint.setAntiAlias(true);
+        mFunctionPaint.setStyle(Paint.Style.STROKE);
         mFunctionPaint.setColor(Color.RED);
 
         ViewConfiguration vc = ViewConfiguration.get(getContext());
@@ -201,8 +203,6 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         mMaxYMath = yFirstMath;
         mMinYMath = yFirstMath;
 
-        //水平遍历每个像素.y1是前一个点的纵坐标，y2是后一个点的纵坐标，j为横坐标
-        long a = System.nanoTime();
         //为了加速绘制，每两个像素点进行遍历
         for (int j = 0; j < mWidth; j = j + 2) {
 
@@ -421,13 +421,17 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         //水平遍历每个像素.y1是前一个点的纵坐标，y2是后一个点的纵坐标，j为横坐标
         long a = System.nanoTime();
         //为了加速绘制，每两个像素点进行遍历
-        for (int j = 0; j < mWidth; j = j + 2) {
+
+        Path path = new Path();
+        path.moveTo((float) 0,(float)mapYMathToPixel(yFirstMath));
+
+        for (int j = 0; j < mWidth; j = j + 5) {
+
             yFirstMath = ySecondMath;
             //根据像素得到对应的横坐标的值，再得到对应的纵坐标的值
             //  ySecondMath = Math.sin(mMinXMath + ((double) j + 1) * (mMaxXMath - mMinXMath) / mWidth);
 
             double xMath = mMinXMath + ((double) j + 1) * (mMaxXMath - mMinXMath) / mWidth;
-
             String input = mComputeExpression.replace(X_VARIABLE, String.valueOf(xMath));
 
             Log.d(TAG + "calculate input: ", input);
@@ -441,10 +445,13 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
                 //如果两个点纵坐标差太大则不画？？
                 if (!((yFirstMath > 20) && (ySecondMath < -20)) && !((yFirstMath < -20) && (ySecondMath > 20))) {
                     //前后两个点连起来
-                    canvas.drawLine(j, mapYMathToPixel(yFirstMath), j + 1, mapYMathToPixel(ySecondMath), mFunctionPaint);
+                    //canvas.drawLine(j, mapYMathToPixel(yFirstMath), j + 1, mapYMathToPixel(ySecondMath), mFunctionPaint);
+                    path.lineTo((float)(j + 1), (float)mapYMathToPixel(ySecondMath));
                 }
             }
         }
+
+        canvas.drawPath(path,mFunctionPaint);
 
         Log.d(TAG + " calculate whole time", System.nanoTime() - a + "");
     }
