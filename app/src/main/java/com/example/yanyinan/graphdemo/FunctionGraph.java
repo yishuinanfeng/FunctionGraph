@@ -348,56 +348,57 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         int fontHeight = (int) (mTextAxisFontMetrics.descent - mTextAxisFontMetrics.ascent);
         //坐标数值文字宽
         int fontWidth = (int) mAxisValuePaint.measureText(" ");
-        //遍水平历每个格子
+        //遍水平历每个格子，画垂直线和横坐标坐标数值
         for (double xMath = minXInteger; xMath < maxXInteger; xMath += stepLength) {
             //y轴所对应的屏幕像素垂直坐标
-            int yPixel = mapYMathToPixel(0);
+            int yAxisPixel = mapYMathToPixel(0);
             //数学坐标为i对应的像素水平坐标
             int xPixel = mapXMathToPixel(xMath);
             //文字和坐标轴距离
             int yTextDistanceToAxis = fontHeight;
-            if (yPixel < 0) {
-                //设定y轴的最小垂直坐标。当图表拖拽到y轴下方的时候，防止y轴往上滑出屏幕
-                yPixel = 0;
-            } else if (yPixel > mHeight - 20) {
-                //设定y轴的最大垂直坐标。当图表拖拽到y轴上方的时候，防止y轴往下滑出屏幕
-                yPixel = mHeight;
+            if (yAxisPixel < 0) {
+                //设定x轴的最小垂直坐标。当图表拖拽到x轴下方的时候，防止x轴往上滑出屏幕
+                yAxisPixel = 0;
+            } else if (yAxisPixel > mHeight - 20) {
+                //设定x轴的最大垂直坐标。当图表拖拽到x轴上方的时候，防止x轴往下滑出屏幕
+                yAxisPixel = mHeight;
                 //y轴在底部则文字显示于坐标轴上方
                 yTextDistanceToAxis = -fontHeight;
             }
-            //从屏幕像素纵坐标0画一条经过屏幕像素xValue的直线到最底部（这里是画出垂直的提示轴即网格线）
+            //屏幕像素横坐标xPixel的直线（这里是画出垂直的提示轴即网格线）
             canvas.drawLine(xPixel, 0, xPixel, mHeight, mAxisHintPaint);
             //需要标注的坐标值
             String text = mDecimalFormat.format(xMath);
-            //写坐标值（在纵坐标为y，即对应的数学纵坐标为0的地方画）
-            canvas.drawText(text, xPixel - fontWidth * text.length() / 2, yPixel + yTextDistanceToAxis, mAxisValuePaint);
+            //写坐标值（在横坐标轴上）
+            canvas.drawText(text, xPixel - fontWidth * text.length() / 2, yAxisPixel + yTextDistanceToAxis, mAxisValuePaint);
         }
+
         //负数坐标y轴数量长度
         final double minYInteger = Math.round(mMinYMath / stepLength) * stepLength;
         //正数坐标y轴数量长度
         final double maxYInteger = Math.round(mMaxYMath / stepLength) * stepLength;
-        //遍历垂直方向的格子
+        //遍历垂直方向的格子，画水平线和纵坐标坐标数值
         for (double yMath = minYInteger; yMath < maxYInteger; yMath += stepLength) {
             //绘制所在的屏幕像素水平位置坐标
             //数学坐标x为0对应的屏幕像素x坐标（即横坐标所在的像素水平坐标）
-            int xPixel = mapXMathToPixel(0);
+            int xAxisPixel = mapXMathToPixel(0);
             //数学坐标为i对应的垂直像素坐标
             int yPixel = mapYMathToPixel(yMath);
             //文字距离纵坐标距离
             int xTextDistanceToAxis = fontWidth;
-            if (xPixel < 0) {
-                //设定x轴的最小垂直坐标。当图表拖拽到x轴右方的时候，防止x轴往左滑出屏幕
-                xPixel = 0;
-            } else if (xPixel > mWidth - 20) {
-                //设定x轴的最大垂直坐标。当图表拖拽到x轴左方的时候，防止x轴往右滑出屏幕
-                xPixel = mWidth;
-                xTextDistanceToAxis = -fontWidth;
-            }
-            //从屏幕像素横坐标0画一条经过屏幕像素y1的直线到最右（这里是画出水平的提示轴即网格线）
-            canvas.drawLine(0, yPixel, mWidth, yPixel, mAxisHintPaint);
             String text = mDecimalFormat.format(yMath);
-            //写坐标值（在纵坐标为y，即对应的数学横坐标为0的地方画）
-            canvas.drawText(text, xPixel + xTextDistanceToAxis, yPixel, mAxisValuePaint);
+            if (xAxisPixel < 0) {
+                //设定y轴的最小垂直坐标。当图表拖拽到y轴右方的时候，防止y轴往左滑出屏幕
+                xAxisPixel = 0;
+            } else if (xAxisPixel > mWidth - 20) {
+                //设定x轴的最大垂直坐标。当图表拖拽到x轴左方的时候，防止y轴往右滑出屏幕
+                xAxisPixel = mWidth;
+                xTextDistanceToAxis = - fontWidth * (text.length() + 1);
+            }
+            //纵坐标yPixel的水平直线（这里是画出水平的提示轴即网格线）
+            canvas.drawLine(0, yPixel, mWidth, yPixel, mAxisHintPaint);
+            //写坐标值（在纵坐标轴上）
+            canvas.drawText(text, xAxisPixel + xTextDistanceToAxis, yPixel, mAxisValuePaint);
         }
 
         int xAxisPixel = mapXMathToPixel(0);
