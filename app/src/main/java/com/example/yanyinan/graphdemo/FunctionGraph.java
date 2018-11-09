@@ -268,14 +268,29 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
                         case 2:
                             double fingersDistance = getDistanceBetweenFingers(event);
                             //缩放倍数
-                            double scale = mLastFingerDistance / fingersDistance;
-                            if (scale < 0.1) {
-                                return;
-                            }
-                            mMaxXMath *= scale;
-                            mMaxYMath *= scale;
-                            mMinXMath *= scale;
-                            mMinYMath *= scale;
+                            double scaleDelta = (mLastFingerDistance - fingersDistance)/ fingersDistance;
+//                            if (scale < 0.1) {
+//                                return;
+//                            }
+                            //左右最大值同时加上缩放臧家的值，中心点在控件像素中心点
+                            double mathWidth = mMaxXMath - mMinXMath;
+                            double mathHeight = mMaxYMath - mMinYMath;
+                            mMaxXMath += mathWidth * scaleDelta / 2;
+                            mMaxYMath += mathHeight * scaleDelta / 2;
+                            mMinXMath -= mathWidth * scaleDelta / 2;
+                            mMinYMath -= mathHeight * scaleDelta / 2;
+
+
+                            Log.d(TAG + " mMaxXMath: " , ""+mMaxXMath);
+                            Log.d(TAG + " mMaxYMath: " , ""+mMaxYMath);
+                            Log.d(TAG + " mMinXMath: " , ""+mMinXMath);
+                            Log.d(TAG + " mMinYMath: " , ""+mMinYMath);
+
+                            //左右最大值同时缩放倍数，中心点在数学坐标原点
+//                            mMaxXMath *= scale;
+//                            mMaxYMath *= scale;
+//                            mMinXMath *= scale;
+//                            mMinYMath *= scale;
                             mLastFingerDistance = fingersDistance;
                             refreshView();
                             break;
