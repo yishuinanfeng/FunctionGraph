@@ -1,11 +1,13 @@
 package com.example.yanyinan.graphdemo;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Typeface;
+import android.os.Handler;
 import android.text.TextPaint;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -22,6 +24,7 @@ import com.example.yanyinan.graphdemo.util.DisplayUtil;
 
 import java.text.DecimalFormat;
 import java.util.concurrent.LinkedBlockingQueue;
+
 
 /**
  * 创建时间： 2018/11/2
@@ -55,7 +58,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     //绘制坐标轴画笔
     private Paint mAxisPaint = new Paint();
     //绘制线程和主线程间传递MotionEvent，确保线程安全
-    private LinkedBlockingQueue<MotionEvent> mEventQueue = new LinkedBlockingQueue<>(1000);
+    private LinkedBlockingQueue<GraphTouchEvent> mEventQueue = new LinkedBlockingQueue<>(1000);
     //当前控件宽高
     private int mWidth;
     private int mHeight;
@@ -74,12 +77,18 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     private double mMinXMath = DEFAULT_MIN_X_AXIS, mMaxXMath = DEFAULT_MAX_X_AXIS, mMinYMath = DEFAULT_MIN_Y_AXIS, mMaxYMath = DEFAULT_MAX_Y_AXIS;
     private float mScreenHeightWidthRatio;
     private float mLastTouchX, mLastTouchY;
+    private float mLastScrollX, mLastScrollY;
     private double mLastFingerDistance;
+
+    private Handler mHandler;
+
+    private OverScroller mOverScroller;
 
     public FunctionGraph(Context context, float screenHeightWidthRatio, String computeExpression) {
         super(context);
         mScreenHeightWidthRatio = screenHeightWidthRatio;
         mComputeExpression = computeExpression;
+        mHandler = new Handler();
         init();
     }
 
@@ -113,13 +122,14 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         ViewConfiguration vc = ViewConfiguration.get(getContext());
         mTouchSlop = vc.getScaledTouchSlop();
 
-        /////////////
         mComputeExpression = StringCalculator.insetBlanks(mComputeExpression);
 
-
+        mOverScroller = new OverScroller(getContext());
         mGestureDetector = new GestureDetector(new GestureDetector.OnGestureListener() {
             @Override
             public boolean onDown(MotionEvent e) {
+                //滑动过程又有down则停止滑动
+                mOverScroller.forceFinished(true);
                 return true;
             }
 
@@ -147,8 +157,58 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
             public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
                 Log.d(TAG + "onFling", "velocityX： " + velocityX + ",velocityY: " + velocityY);
 
-                OverScroller overScroller = new OverScroller(getContext());
-                //  overScroller.fling();
+                if (isTwoFingerMode) {
+                    return false;
+                }
+                mOverScroller.fling((int) mLastTouchX, (int) mLastTouchY, (int) velocityX,
+                        (int) velocityY, -10000, 10000, -10000, 100000);
+
+                mLastScrollX = mLastTouchX;
+                mLastScrollY = mLastTouchY;
+
+                final ValueAnimator mScrollAnimator = ValueAnimator.ofFloat(0, 1000);
+                mScrollAnimator.setDuration(1000);
+                mScrollAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                    @Override
+                    public void onAnimationUpdate(ValueAnimator animation) {
+
+                        try {
+                            mEventQueue.put(new GraphTouchEvent(new Runnable() {
+                                @Override
+                                public void run() {
+                                    if (!mOverScroller.isFinished()) {
+                                        mOverScroller.computeScrollOffset();
+
+                                        double difXPixel = mLastScrollX - mOverScroller.getCurrX();
+                                        double difYPixel = mOverScroller.getCurrY() - mLastScrollY;
+
+                                        double difXMath = (mMaxXMath - mMinXMath) * difXPixel / mWidth;
+                                        double difYMath = (mMaxYMath - mMinYMath) * difYPixel / mHeight;
+
+                                        mMaxXMath += difXMath;
+                                        mMaxYMath += difYMath;
+                                        mMinXMath += difXMath;
+                                        mMinYMath += difYMath;
+                                        refreshView();
+
+                                        mLastScrollX = mOverScroller.getCurrX();
+                                        mLastScrollY = mOverScroller.getCurrY();
+
+                                    }
+                                }
+                            }));
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+
+                    }
+                });
+                mHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        mScrollAnimator.start();
+                    }
+                });
                 return false;
             }
         });
@@ -223,88 +283,98 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         mMaxXMath = mMaxYMath / mScreenHeightWidthRatio;
         mMinXMath = mMinYMath / mScreenHeightWidthRatio;
 
-        Log.d(TAG + "mMaxYMath: ",mMaxYMath + "");
-        Log.d(TAG + "mMinYMath: ",mMinYMath + "");
-        Log.d(TAG + "mMaxXMath: ",mMaxXMath + "");
-        Log.d(TAG + "mMinXMath: ",mMinXMath + "");
+        Log.d(TAG + "mMaxYMath: ", mMaxYMath + "");
+        Log.d(TAG + "mMinYMath: ", mMinYMath + "");
+        Log.d(TAG + "mMaxXMath: ", mMaxXMath + "");
+        Log.d(TAG + "mMinXMath: ", mMinXMath + "");
     }
 
     private void handleTouchEvent() {
         try {
-            MotionEvent event = mEventQueue.take();
-//            mGestureDetector.onTouchEvent(event);
+            GraphTouchEvent event = mEventQueue.take();
 
-            int action = event.getActionMasked();
+            if (event.getType() == GraphTouchEvent.SCROLL_TYPE) {
+                Runnable runnable = event.getScrollRunnable();
+                runnable.run();
+            } else if (event.getType() == GraphTouchEvent.MOTION_TYPE) {
+                MotionEvent motionEvent = event.getMotionEvent();
+                int action = motionEvent.getActionMasked();
 
-            switch (action) {
-                case MotionEvent.ACTION_DOWN:
-                    mLastTouchX = event.getX();
-                    mLastTouchY = event.getY();
-                    break;
-                case MotionEvent.ACTION_POINTER_DOWN:
-                    if (event.getPointerCount() == 2) {
-                        isTwoFingerMode = true;
-                        mLastFingerDistance = getDistanceBetweenFingers(event);
-                    }
-                case MotionEvent.ACTION_MOVE:
-                    switch (event.getPointerCount()) {
-                        case 1:
-                            if (isTwoFingerMode){
-                                return;
-                            }
-                            float difXPixel = mLastTouchX - event.getX();
-                            //注意数学和屏幕像素坐标方向相反
-                            float difYPixel = event.getY() - mLastTouchY;
-                            double difXMath = (mMaxXMath - mMinXMath) * difXPixel / mWidth;
-                            double difYMath = (mMaxYMath - mMinYMath) * difYPixel / mHeight;
-                            mMinXMath += difXMath;
-                            mMaxXMath += difXMath;
-                            mMinYMath += difYMath;
-                            mMaxYMath += difYMath;
-                            mLastTouchX = event.getX();
-                            mLastTouchY = event.getY();
-                            refreshView();
+                switch (action) {
+                    case MotionEvent.ACTION_DOWN:
+                        mLastTouchX = motionEvent.getX();
+                        mLastTouchY = motionEvent.getY();
+                        break;
+                    case MotionEvent.ACTION_POINTER_DOWN:
+                        if (motionEvent.getPointerCount() == 2) {
+                            isTwoFingerMode = true;
+                            mLastFingerDistance = getDistanceBetweenFingers(motionEvent);
                             break;
-                        case 2:
-                            double fingersDistance = getDistanceBetweenFingers(event);
-                            //缩放倍数
-                            double scaleDelta = (mLastFingerDistance - fingersDistance)/ fingersDistance;
-//                            if (scale < 0.1) {
-//                                return;
-//                            }
-                            //左右最大值同时加上缩放臧家的值，中心点在控件像素中心点
-                            double mathWidth = mMaxXMath - mMinXMath;
-                            double mathHeight = mMaxYMath - mMinYMath;
-                            mMaxXMath += mathWidth * scaleDelta / 2;
-                            mMaxYMath += mathHeight * scaleDelta / 2;
-                            mMinXMath -= mathWidth * scaleDelta / 2;
-                            mMinYMath -= mathHeight * scaleDelta / 2;
+                        }
+                    case MotionEvent.ACTION_MOVE:
 
+                        switch (motionEvent.getPointerCount()) {
+                            case 1:
+                                if (isTwoFingerMode) {
+                                    return;
+                                }
+                                float difXPixel = mLastTouchX - motionEvent.getX();
+                                //注意数学和屏幕像素坐标方向相反
+                                float difYPixel = motionEvent.getY() - mLastTouchY;
 
-                            Log.d(TAG + " mMaxXMath: " , ""+mMaxXMath);
-                            Log.d(TAG + " mMaxYMath: " , ""+mMaxYMath);
-                            Log.d(TAG + " mMinXMath: " , ""+mMinXMath);
-                            Log.d(TAG + " mMinYMath: " , ""+mMinYMath);
+                                double difXMath = (mMaxXMath - mMinXMath) * difXPixel / mWidth;
+                                double difYMath = (mMaxYMath - mMinYMath) * difYPixel / mHeight;
+                                mMinXMath += difXMath;
+                                mMaxXMath += difXMath;
+                                mMinYMath += difYMath;
+                                mMaxYMath += difYMath;
+                                mLastTouchX = motionEvent.getX();
+                                mLastTouchY = motionEvent.getY();
+                                refreshView();
+                                break;
+                            case 2:
+                                if (!isTwoFingerMode) {
+                                    return;
+                                }
 
-                            //左右最大值同时缩放倍数，中心点在数学坐标原点
+                                double fingersDistance = getDistanceBetweenFingers(motionEvent);
+                                //缩放倍数
+                                double scaleDelta = (mLastFingerDistance - fingersDistance) / fingersDistance;
+//                                if (scaleDelta < 0.01) {
+//                                    return;
+//                                }
+                                //左右最大值同时加上缩放增加的值，中心点在控件像素中心点
+                                double mathWidth = mMaxXMath - mMinXMath;
+                                double mathHeight = mMaxYMath - mMinYMath;
+                                mMaxXMath += mathWidth * scaleDelta / 2;
+                                mMaxYMath += mathHeight * scaleDelta / 2;
+                                mMinXMath -= mathWidth * scaleDelta / 2;
+                                mMinYMath -= mathHeight * scaleDelta / 2;
+
+                                //左右最大值同时缩放倍数，中心点在数学坐标原点
 //                            mMaxXMath *= scale;
 //                            mMaxYMath *= scale;
 //                            mMinXMath *= scale;
 //                            mMinYMath *= scale;
-                            mLastFingerDistance = fingersDistance;
-                            refreshView();
-                            break;
-                    }
+                                mLastFingerDistance = fingersDistance;
+                                refreshView();
+                                break;
+                        }
 
-                case MotionEvent.ACTION_POINTER_UP:
+                    case MotionEvent.ACTION_POINTER_UP:
 
-                    break;
+                        break;
 
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-                    isTwoFingerMode = false;
-                    break;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        mLastTouchX = motionEvent.getX();
+                        mLastTouchY = motionEvent.getY();
+                        isTwoFingerMode = false;
+                        break;
+                }
             }
+
+
         } catch (InterruptedException e) {
             Log.e(TAG + Thread.currentThread() + " mEventQueue take", e.getMessage());
         }
@@ -313,7 +383,9 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         try {
-            mEventQueue.put(event);
+            GraphTouchEvent graphTouchEvent = new GraphTouchEvent(event);
+            mEventQueue.put(graphTouchEvent);
+            mGestureDetector.onTouchEvent(event);
         } catch (InterruptedException e) {
             Log.e(TAG + Thread.currentThread() + " mEventQueue put", e.getMessage());
         }
@@ -325,6 +397,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         try {
             mCanvas = mHolder.lockCanvas();
             drawGraph(mCanvas);
+            Log.d(TAG + "refreshView Thread： ", Thread.currentThread().getName());
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
@@ -408,7 +481,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
             } else if (xAxisPixel > mWidth - 20) {
                 //设定x轴的最大垂直坐标。当图表拖拽到x轴左方的时候，防止y轴往右滑出屏幕
                 xAxisPixel = mWidth;
-                xTextDistanceToAxis = - fontWidth * (text.length() + 1);
+                xTextDistanceToAxis = -fontWidth * (text.length() + 1);
             }
             //纵坐标yPixel的水平直线（这里是画出水平的提示轴即网格线）
             canvas.drawLine(0, yPixel, mWidth, yPixel, mAxisHintPaint);
@@ -439,7 +512,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         //为了加速绘制，每两个像素点进行遍历
 
         Path path = new Path();
-        path.moveTo((float) 0,(float)mapYMathToPixel(yFirstMath));
+        path.moveTo((float) 0, (float) mapYMathToPixel(yFirstMath));
 
         for (int j = 0; j < mWidth; j = j + 5) {
 
@@ -462,12 +535,12 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
                 if (!((yFirstMath > 20) && (ySecondMath < -20)) && !((yFirstMath < -20) && (ySecondMath > 20))) {
                     //前后两个点连起来
                     //canvas.drawLine(j, mapYMathToPixel(yFirstMath), j + 1, mapYMathToPixel(ySecondMath), mFunctionPaint);
-                    path.lineTo((float)(j + 1), (float)mapYMathToPixel(ySecondMath));
+                    path.lineTo((float) (j + 1), (float) mapYMathToPixel(ySecondMath));
                 }
             }
         }
 
-        canvas.drawPath(path,mFunctionPaint);
+        canvas.drawPath(path, mFunctionPaint);
 
         Log.d(TAG + " calculate whole time", System.nanoTime() - a + "");
     }
@@ -505,4 +578,34 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         return (int) (mHeight - mHeight * (y - mMinYMath) / (mMaxYMath - mMinYMath));
     }
 
+    class GraphTouchEvent {
+        private static final int MOTION_TYPE = 0;
+        private static final int SCROLL_TYPE = 1;
+
+        private int type;
+        private MotionEvent motionEvent;
+        private Runnable ScrollRunnable;
+
+        public GraphTouchEvent(MotionEvent motionEvent) {
+            this.type = MOTION_TYPE;
+            this.motionEvent = motionEvent;
+        }
+
+        public GraphTouchEvent(Runnable scrollRunnable) {
+            this.type = SCROLL_TYPE;
+            ScrollRunnable = scrollRunnable;
+        }
+
+        public int getType() {
+            return type;
+        }
+
+        public MotionEvent getMotionEvent() {
+            return motionEvent;
+        }
+
+        public Runnable getScrollRunnable() {
+            return ScrollRunnable;
+        }
+    }
 }
