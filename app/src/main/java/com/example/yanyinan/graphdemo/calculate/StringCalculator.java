@@ -25,7 +25,7 @@ public class StringCalculator {
     private static final char COS = 'c';
     private static final char TAN = 't';
 
-    private static Stack<Double> numStack = new Stack<>();
+    private static Stack<Float> numStack = new Stack<>();
     private static Stack<Character> operatorStack = new Stack<>();
     //三角函数
     private static ArrayList<Character> triSymbolList = new ArrayList<>();
@@ -62,7 +62,7 @@ public class StringCalculator {
      * @param expression
      * @return
      */
-    public static double evaluateExpression(String expression) {
+    public static float evaluateExpression(String expression) {
         numStack.clear();
         operatorStack.clear();
         //   expression = insetBlanks(expression);
@@ -122,7 +122,7 @@ public class StringCalculator {
             }
             //这里如果是数字的话直接入数据的栈
             else {
-                numStack.push(Double.parseDouble(token));   //将数字字符串转换成数字然后压入栈中
+                numStack.push(Float.parseFloat(token));   //将数字字符串转换成数字然后压入栈中
             }
         }
         //最后当栈中不是空的时候继续运算，知道栈中为空即可
@@ -136,13 +136,13 @@ public class StringCalculator {
     }
 
     //这个函数的作用就是处理栈中的两个数据，然后将栈中的两个数据运算之后将结果存储在栈中
-    public static void processAnOperator(Stack<Double> numStack, Stack<Character> operatorStack) {
+    public static void processAnOperator(Stack<Float> numStack, Stack<Character> operatorStack) {
 
         long t = System.nanoTime();
 
         char op = operatorStack.pop();  //弹出一个操作符
-        double op1 = numStack.pop();
-        double op2 = 0;//从存储数据的栈中弹出连个两个数用来和操作符op运算
+        float op1 = numStack.pop();
+        float op2 = 0;//从存储数据的栈中弹出连个两个数用来和操作符op运算
         if (!triSymbolList.contains(op)) {
             op2 = numStack.pop();
         }
@@ -159,16 +159,16 @@ public class StringCalculator {
             numStack.push(op2 / op1);
 
         } else if (op == '^') {
-            numStack.push(Math.pow(op2, op1));
+            numStack.push((float)Math.pow(op2, op1));
 
         } else if (op == SIN) {
-            numStack.push(Math.sin(op1));
+            numStack.push((float)Math.sin(op1));
         }
         else if (op == COS) {
-            numStack.push(Math.cos(op1));
+            numStack.push((float)Math.cos(op1));
         }
         else if (op == TAN) {
-            numStack.push(Math.tan(op1));
+            numStack.push((float)Math.tan(op1));
         }
 
 
