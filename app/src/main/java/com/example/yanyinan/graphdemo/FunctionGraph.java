@@ -154,29 +154,40 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
             public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
                 Log.d(TAG + "onFling", "velocityX： " + velocityX + ",velocityY: " + velocityY);
 
-                if (isTwoFingerMode) {
-                    return false;
-                }
-                mOverScroller.fling((int) mLastTouchX, (int) mLastTouchY, (int) velocityX,
-                        (int) velocityY, -Integer.MAX_VALUE, Integer.MAX_VALUE, -Integer.MAX_VALUE, Integer.MAX_VALUE);
+                switch (e2.getPointerCount()) {
+                    case 1:
+                        if (!isTwoFingerMode){
+                            mOverScroller.fling((int) mLastTouchX, (int) mLastTouchY, (int) velocityX,
+                                    (int) velocityY, -Integer.MAX_VALUE, Integer.MAX_VALUE, -Integer.MAX_VALUE, Integer.MAX_VALUE);
 
-                mLastScrollX = mLastTouchX;
-                mLastScrollY = mLastTouchY;
+                            mLastScrollX = mLastTouchX;
+                            mLastScrollY = mLastTouchY;
 
-                final ValueAnimator mScrollAnimator = ValueAnimator.ofInt(0, 1000);
-                mScrollAnimator.setDuration(1000);
-                mScrollAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                    @Override
-                    public void onAnimationUpdate(ValueAnimator animation) {
-                        Log.d(TAG + "onFling", "onAnimationUpdate");
-                        if (!mOverScroller.isFinished()) {
-                            handleSlowDown();
-                        } else {
-                            mScrollAnimator.cancel();
+                            final ValueAnimator mScrollAnimator = ValueAnimator.ofInt(0, 1000);
+                            mScrollAnimator.setDuration(1000);
+                            mScrollAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                                @Override
+                                public void onAnimationUpdate(ValueAnimator animation) {
+                                    Log.d(TAG + "onFling", "onAnimationUpdate");
+                                    if (!mOverScroller.isFinished()) {
+                                        handleSlowDown();
+                                    } else {
+                                        mScrollAnimator.cancel();
+                                    }
+                                }
+                            });
+                            mScrollAnimator.start();
                         }
-                    }
-                });
-                mScrollAnimator.start();
+                        break;
+                    case 2:
+                        break;
+                }
+
+
+//                if (e2.getPointerCount() != 1 || isTwoFingerMode) {
+//                    return false;
+//                }
+
                 return false;
             }
         });
@@ -550,6 +561,9 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         return (int) (mHeight - mHeight * (y - mMinYMath) / (mMaxYMath - mMinYMath));
     }
 
+    /**
+     * SurfaceView的绘制线程
+     */
     class DrawHandlerThread extends HandlerThread {
 
         DrawHandlerThread(String name) {
