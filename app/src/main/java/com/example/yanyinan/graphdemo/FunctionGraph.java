@@ -35,11 +35,14 @@ import java.text.DecimalFormat;
 public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback {
     private final String TAG = FunctionGraph.class.getSimpleName();
 
-    private static int DEFAULT_MIN_X_AXIS = -10;
-    private static int DEFAULT_MAX_X_AXIS = 10;
-    private static int DEFAULT_MIN_Y_AXIS = -10;
-    private static int DEFAULT_MAX_Y_AXIS = 10;
-    private static int DEFAULT_STEP_COUNT = 10;
+    private static final int DEFAULT_MIN_X_AXIS = -5;
+    private static final int DEFAULT_MAX_X_AXIS = 5;
+    //    private static final int DEFAULT_MIN_Y_AXIS = -10;
+//    private static final int DEFAULT_MAX_Y_AXIS = 10;
+    private static final int DEFAULT_STEP_COUNT = 10;
+    private static final int DEFAULT_EVERY_DRAW_LENGTH = 5;
+    private static final int MAX_MATH_VALUE = Integer.MAX_VALUE - 50;
+    private static final int MIN_MATH_VALUE = Integer.MIN_VALUE + 50;
     private static final String RENDER_THREAD_NAME = "FunctionGraphRenderThread";
     private static final String X_VARIABLE = "x";
 
@@ -72,7 +75,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     /**
      * 屏幕显示的x,y轴的最值
      */
-    private float mMinXMath = DEFAULT_MIN_X_AXIS, mMaxXMath = DEFAULT_MAX_X_AXIS, mMinYMath = DEFAULT_MIN_Y_AXIS, mMaxYMath = DEFAULT_MAX_Y_AXIS;
+    private float mMinXMath = DEFAULT_MIN_X_AXIS, mMaxXMath = DEFAULT_MAX_X_AXIS, mMinYMath, mMaxYMath;
     private float mScreenHeightWidthRatio;
     private float mLastTouchX, mLastTouchY;
     private float mLastScrollX, mLastScrollY;
@@ -96,6 +99,9 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     }
 
     private void init() {
+        mMaxYMath = mMaxXMath * mScreenHeightWidthRatio;
+        mMinYMath = mMinXMath * mScreenHeightWidthRatio;
+
         mHolder = getHolder();
         mHolder.addCallback(this);
 
@@ -112,7 +118,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         mAxisValuePaint.setTextSize(DisplayUtil.dpTpPx(getContext(), 10));
         mTextAxisFontMetrics = mAxisValuePaint.getFontMetrics();
 
-        mFunctionPaint.setStrokeWidth(DisplayUtil.dpTpPx(getContext(), 2));
+        mFunctionPaint.setStrokeWidth(6f);
         mFunctionPaint.setAntiAlias(true);
         mFunctionPaint.setStyle(Paint.Style.STROKE);
         mFunctionPaint.setColor(Color.RED);
@@ -156,7 +162,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 
                 switch (e2.getPointerCount()) {
                     case 1:
-                        if (!isTwoFingerMode){
+                        if (!isTwoFingerMode) {
                             mOverScroller.fling((int) mLastTouchX, (int) mLastTouchY, (int) velocityX,
                                     (int) velocityY, -Integer.MAX_VALUE, Integer.MAX_VALUE, -Integer.MAX_VALUE, Integer.MAX_VALUE);
 
@@ -245,30 +251,58 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
      */
     private void setMaximumValueForYAxis() {
         //最小横坐标对应的纵坐标的值
+       // float maxYMath;
+        float minAbsYMath;
         String firstXInput = mComputeExpression.replace(X_VARIABLE, String.valueOf(mMinXMath));
         float yFirstMath = StringCalculator.evaluateExpression(firstXInput);
-        mMaxYMath = yFirstMath;
-        mMinYMath = yFirstMath;
+       // maxYMath = yFirstMath;
+        minAbsYMath =  Math.abs(yFirstMath);
 
-        //为了加速绘制，每两个像素点进行遍历
-        for (int j = 0; j < mWidth; j = j + 2) {
-
+        //为了加速绘制，每4个像素点进行遍历
+        for (int j = 1; j < mWidth; j = j + 1) {
             float xMath = mMinXMath + ((float) j + 1) * (mMaxXMath - mMinXMath) / mWidth;
             String input = mComputeExpression.replace(X_VARIABLE, String.valueOf(xMath));
 
             yFirstMath = StringCalculator.evaluateExpression(input);
-            if (mMaxYMath < yFirstMath) {
-                mMaxYMath = yFirstMath;
-            } else if (mMinYMath > yFirstMath) {
-                mMinYMath = yFirstMath;
+//            if (maxYMath <= yFirstMath) {
+//                maxYMath = yFirstMath;
+//
+//            }
+//            else
+            Log.d(TAG + "setMaximumValueForYAxis","Math.abs(minAbsYMath): " + Math.abs(minAbsYMath)+ " ,Math.abs(yFirstMath): " + Math.abs(yFirstMath));
+                if (Math.abs(minAbsYMath) > Math.abs(yFirstMath)) {
+                minAbsYMath = yFirstMath;
             }
         }
 
-        float maxAbs = (float) (Math.abs(mMaxYMath) > Math.abs(mMinYMath) ? Math.abs(mMaxYMath) * 1.5 : Math.abs(mMinYMath) * 1.5);
-        mMaxYMath = maxAbs;
-        mMinYMath = -maxAbs;
-        mMaxXMath = mMaxYMath / mScreenHeightWidthRatio;
-        mMinXMath = mMinYMath / mScreenHeightWidthRatio;
+//        float maxAbs = (float) (Math.abs(maxYMath) > Math.abs(minYMath) ? Math.abs(maxYMath) * 1.5 : Math.abs(minYMath) * 1.5);
+//        if (maxAbs > mMaxXMath * 100) {
+//            maxAbs =
+//        }
+//
+//        mMaxYMath = maxAbs;
+//        mMinYMath = -maxAbs;
+//        mMaxXMath = mMaxYMath / mScreenHeightWidthRatio;
+//        mMinXMath = mMinYMath / mScreenHeightWidthRatio;
+
+
+
+
+        //如果该函数没有经过x轴（因为是采样，为了兼顾误差所以选了2）
+//        if (maxYMath < -2 || minYMath > 2) {
+//            float maxMinYDistance = maxYMath - minYMath;
+//            float middleYMath = maxYMath - maxMinYDistance / 2;
+//            mMaxYMath = middleYMath + DEFAULT_MAX_X_AXIS;
+//            mMinYMath = middleYMath + DEFAULT_MIN_X_AXIS;
+//        }
+
+        mMaxYMath = mMaxYMath + minAbsYMath;
+        mMinYMath = mMinYMath + minAbsYMath;
+
+//        mMaxXMath = mMaxYMath / mScreenHeightWidthRatio;
+//        mMinXMath = mMinYMath / mScreenHeightWidthRatio;
+
+
 
         Log.d(TAG + "mMaxYMath: ", mMaxYMath + "");
         Log.d(TAG + "mMinYMath: ", mMinYMath + "");
@@ -377,6 +411,10 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     }
 
     private void refreshView() {
+        if (mMaxXMath > MAX_MATH_VALUE || mMaxYMath > MAX_MATH_VALUE || mMinXMath < MIN_MATH_VALUE || mMinYMath < MIN_MATH_VALUE) {
+            return;
+        }
+
         try {
             mCanvas = mHolder.lockCanvas();
             drawGraph(mCanvas);
@@ -497,13 +535,13 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         Path path = new Path();
         path.moveTo((float) 0, (float) mapYMathToPixel(yFirstMath));
 
-        for (int j = 0; j < mWidth; j = j + 5) {
+        for (int j = 0; j < mWidth; j = j + DEFAULT_EVERY_DRAW_LENGTH) {
 
             yFirstMath = ySecondMath;
             //根据像素得到对应的横坐标的值，再得到对应的纵坐标的值
             //  ySecondMath = Math.sin(mMinXMath + ((double) j + 1) * (mMaxXMath - mMinXMath) / mWidth);
 
-            float xMath = mMinXMath + ((float) j + 1) * (mMaxXMath - mMinXMath) / mWidth;
+            float xMath = mMinXMath + ((float) j) * (mMaxXMath - mMinXMath) / mWidth;
             String input = mComputeExpression.replace(X_VARIABLE, String.valueOf(xMath));
 
             Log.d(TAG + "calculate input: ", input);
@@ -513,13 +551,25 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 
             Log.d("calculate Expression", System.nanoTime() - a2 + "");
 
-            if (yFirstMath != Float.POSITIVE_INFINITY && ySecondMath != Float.POSITIVE_INFINITY) {
-                //如果两个点纵坐标差太大则不画？？
-                if (!((yFirstMath > 20) && (ySecondMath < -20)) && !((yFirstMath < -20) && (ySecondMath > 20))) {
+
+            if (Math.abs(yFirstMath) < Float.POSITIVE_INFINITY && Math.abs(ySecondMath) < Float.POSITIVE_INFINITY) {
+                //这里不知道为何，在ySecondMath和yFirstMath差很大的情况下如果使用lineTo有时候画不出来。。
+                if (!(Math.abs(ySecondMath - yFirstMath) > 10000)) {
                     //前后两个点连起来
                     //canvas.drawLine(j, mapYMathToPixel(yFirstMath), j + 1, mapYMathToPixel(ySecondMath), mFunctionPaint);
-                    path.lineTo((float) (j + 1), (float) mapYMathToPixel(ySecondMath));
+                    float yPixel = (float) mapYMathToPixel(ySecondMath);
+
+                    path.lineTo((float) (j), yPixel);
+                    Log.d(TAG + "drawFunction ", "xPixel: " + (j + 1) + ",xMath: " + xMath + ",yFirstMath: " + yFirstMath + ",ySecondMath: " + ySecondMath);
+                    Log.d(TAG + "drawFunction ", "lineTo" +",xPixel: " + (j + 1) + ",yPixel: " + mapYMathToPixel(ySecondMath));
                 }
+                else {
+                    float yPixel = (float) mapYMathToPixel(ySecondMath);
+                    path.moveTo((float) (j), yPixel);
+                    Log.d(TAG + "drawFunction ", "xPixel: " + (j + 1) + ",xMath: " + xMath + ",yFirstMath: " + yFirstMath + ",ySecondMath: " + ySecondMath);
+                    Log.d(TAG + "drawFunction ", "moveTo" + ",xPixel: " + (j + 1) + ",yPixel: " + mapYMathToPixel(ySecondMath));
+                }
+
             }
         }
 

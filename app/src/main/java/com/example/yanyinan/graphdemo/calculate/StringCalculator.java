@@ -23,7 +23,7 @@ public class StringCalculator {
     //替换三角函数的操作符
     private static final char SIN = 's';
     private static final char COS = 'c';
-    private static final char TAN = 't';
+   // private static final char TAN = 't';
 
     private static Stack<Float> numStack = new Stack<>();
     private static Stack<Character> operatorStack = new Stack<>();
@@ -33,7 +33,7 @@ public class StringCalculator {
     static {
         triSymbolList.add(SIN);
         triSymbolList.add(COS);
-        triSymbolList.add(TAN);
+    //    triSymbolList.add(TAN);
     }
 
     //这个函数的作用就是使用空格分割字符串，以便后面使用分割函数使得将字符串分割成数组
@@ -52,7 +52,7 @@ public class StringCalculator {
         String result = sb.toString();
         result = result.replace("sin", " " + String.valueOf(SIN) + " ");
         result = result.replace("cos", " " + String.valueOf(COS) + " ");
-        result = result.replace("tan", " " + String.valueOf(TAN) + " ");
+      //  result = result.replace("tan", " " + String.valueOf(TAN) + " ");
         return result;
     }
 
@@ -167,9 +167,9 @@ public class StringCalculator {
         else if (op == COS) {
             numStack.push((float)Math.cos(op1));
         }
-        else if (op == TAN) {
-            numStack.push((float)Math.tan(op1));
-        }
+//        else if (op == TAN) {
+//            numStack.push((float)Math.tan(op1));
+//        }
 
 
         Log.d(TAG + "calculate processAnOperator time:", System.nanoTime() - t + "");
