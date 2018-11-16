@@ -39,10 +39,19 @@ public class StringCalculator {
     //这个函数的作用就是使用空格分割字符串，以便后面使用分割函数使得将字符串分割成数组
     public static String insetBlanks(String s) {
         StringBuilder sb = new StringBuilder();
+        //第一位是“-”，补“0”
+        if (s.charAt(0) == '-'){
+            sb.append("0 ");
+        }
+
         for (int i = 0; i < s.length(); i++) {
             if (s.charAt(i) == '(' || s.charAt(i) == ')' ||
-                    s.charAt(i) == '+' || (i > 0 && s.charAt(i) == '-' && s.charAt(i - 1) != '(')
-                    || s.charAt(i) == '*' || s.charAt(i) == '/' || s.charAt(i) == POWER) {
+                    s.charAt(i) == '+' ||
+                    //“s.charAt(i - 1) != '('”是为了使得（-1）的负号和数字不分开
+                    (i > 0 && s.charAt(i) == '-' && s.charAt(i - 1) != '(')
+                    || s.charAt(i) == '*'
+                    || s.charAt(i) == '/'
+                    || s.charAt(i) == POWER) {
 
                 sb.append(" ").append(s.charAt(i)).append(" ");
             } else {
@@ -52,7 +61,7 @@ public class StringCalculator {
         String result = sb.toString();
         result = result.replace("sin", " " + String.valueOf(SIN) + " ");
         result = result.replace("cos", " " + String.valueOf(COS) + " ");
-      //  result = result.replace("tan", " " + String.valueOf(TAN) + " ");
+      //  result = result.replace("tan", " " + String.valueOf(TAN) + " "); //tan不是函数（非连续）
         return result;
     }
 

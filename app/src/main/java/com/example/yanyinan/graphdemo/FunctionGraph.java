@@ -254,6 +254,8 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
        // float maxYMath;
         float minAbsYMath;
         String firstXInput = mComputeExpression.replace(X_VARIABLE, String.valueOf(mMinXMath));
+        Log.d(TAG + "mComputeExpression: ",mComputeExpression);
+
         float yFirstMath = StringCalculator.evaluateExpression(firstXInput);
        // maxYMath = yFirstMath;
         minAbsYMath =  Math.abs(yFirstMath);

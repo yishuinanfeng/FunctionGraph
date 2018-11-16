@@ -14,13 +14,14 @@ public class MainActivity extends AppCompatActivity {
 
         String a = "sin(x)";
         String b = "x^10+400";
-        String c = "-(x^2+100)";
+        String c = "(-1)*x^2";
         String d = "x^5";
         String f = "sin(x) + 1000";
-        String g = "cos(x) + 1000";
+        String g = "cos(x) - 1000";
         String h = "tan(x)";
+        String i = "-sin(x)";
+        String j = "-sin(x) + cos(x) + 2*x + x^2";
 
-        setContentView(new FunctionGraph(this,screenHeightWidthRatio,f));
-
+        setContentView(new FunctionGraph(this,screenHeightWidthRatio,j));
     }
 }
