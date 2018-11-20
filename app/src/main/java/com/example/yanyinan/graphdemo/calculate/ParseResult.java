@@ -12,17 +12,21 @@ public class ParseResult {
      * 解析得到的数字编码后的表达式
      */
     private ArrayList<Float> mFormulaList = new ArrayList<>();
+    //使用数组是为了避免拆装箱
     private float[] mFormulaArray;
     /**
      * 记录数字编码后的表达式中操作符的index
      */
     private ArrayList<Integer> unknownVariableIndex = new ArrayList<>();
+    //使用数组是为了避免拆装箱
     private int[] unknownVariableArray;
     /**
      * 记录数字编码后的表达式中未知数的index
      */
     private ArrayList<Integer> operatorIndex = new ArrayList<>();
+    //使用数组是为了避免拆装箱
     private int[] operatorArray;
+    private int nextOperatorIndexPosition;
 
     public void addNum(Float num) {
         mFormulaList.add(num);
@@ -72,11 +76,16 @@ public class ParseResult {
 
     public boolean isOperator(int index) {
         int[] array = getOperatorIndexArray();
-        for (int anArray : array) {
-            if (anArray == index) {
-                return true;
+        //因为array储存的操作符下标是从小到大的，所以每次查看是不是操作符只需要对比array[nextOperatorIndexPosition]而不需要遍历
+        if (array[nextOperatorIndexPosition] == index){
+            if (nextOperatorIndexPosition == array.length - 1){
+                nextOperatorIndexPosition = 0;
+            }else {
+                nextOperatorIndexPosition++;
             }
+            return true;
         }
+
         return false;
     }
 

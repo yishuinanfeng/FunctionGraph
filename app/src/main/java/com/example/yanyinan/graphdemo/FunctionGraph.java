@@ -20,7 +20,7 @@ import android.widget.OverScroller;
 
 import com.example.yanyinan.graphdemo.calculate.CalculateParser;
 import com.example.yanyinan.graphdemo.calculate.ParseResult;
-import com.example.yanyinan.graphdemo.calculate.StringCalculator;
+import com.example.yanyinan.graphdemo.calculate.Calculator;
 import com.example.yanyinan.graphdemo.util.DecimalFactory;
 import com.example.yanyinan.graphdemo.util.DisplayUtil;
 
@@ -260,7 +260,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 
         mExpressionParserResult.replaceUnknownVariable(mMinXMath);
 
-        float yFirstMath = StringCalculator.evaluateExpression(mExpressionParserResult);
+        float yFirstMath = Calculator.evaluateExpression(mExpressionParserResult);
        // maxYMath = yFirstMath;
         minAbsYMath =  Math.abs(yFirstMath);
 
@@ -271,7 +271,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 
             mExpressionParserResult.replaceUnknownVariable(xMath);
 
-            yFirstMath = StringCalculator.evaluateExpression(mExpressionParserResult);
+            yFirstMath = Calculator.evaluateExpression(mExpressionParserResult);
 //            if (maxYMath <= yFirstMath) {
 //                maxYMath = yFirstMath;
 //
@@ -533,7 +533,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
       //  String firstXInput = mComputeExpression.replace("x", String.valueOf(mMinXMath));
 
         mExpressionParserResult.replaceUnknownVariable(mMinXMath);
-        float yFirstMath = StringCalculator.evaluateExpression(mExpressionParserResult);
+        float yFirstMath = Calculator.evaluateExpression(mExpressionParserResult);
         float ySecondMath = yFirstMath;
 
         //水平遍历每个像素.y1是前一个点的纵坐标，y2是后一个点的纵坐标，j为横坐标
@@ -555,7 +555,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
             Log.d(TAG + "calculate input: ", mExpressionParserResult.toString());
 
             long a2 = System.nanoTime();
-            ySecondMath = StringCalculator.evaluateExpression(mExpressionParserResult);
+            ySecondMath = Calculator.evaluateExpression(mExpressionParserResult);
 
             Log.d("calculate Expression", System.nanoTime() - a2 + "");
 

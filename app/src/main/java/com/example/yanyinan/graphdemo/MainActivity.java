@@ -23,6 +23,6 @@ public class MainActivity extends AppCompatActivity {
         String j = "-sin(x) + cos(x)";
         String k = "7*(8+x)";
 
-        setContentView(new FunctionGraph(this,screenHeightWidthRatio,f));
+        setContentView(new FunctionGraph(this,screenHeightWidthRatio,b));
     }
 }

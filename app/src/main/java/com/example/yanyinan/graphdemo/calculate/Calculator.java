@@ -10,20 +10,8 @@ import java.util.Stack;
  * 作者：yanyinan
  * 功能描述：对输入的字符串进行计算
  */
-public class StringCalculator {
-    private static final String TAG = StringCalculator.class.getSimpleName();
-
-    private static final char PLUS = '+';
-    private static final char MINUS = '-';
-    private static final char TIME = '*';
-    private static final char DIVIDE = '/';
-    private static final char POWER = '^';
-    private static final char LEFT_BRACKET = '(';
-    private static final char RIGHT_BRACKET = ')';
-//    //替换三角函数的操作符
-//    private static final char SIN = 's';
-//    private static final char COS = 'c';
-    // private static final char TAN = 't';
+public class Calculator {
+    private static final String TAG = Calculator.class.getSimpleName();
 
     private static Stack<Float> numStack = new Stack<>();
     private static Stack<Float> operatorStack = new Stack<>();
