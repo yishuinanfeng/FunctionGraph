@@ -9,7 +9,6 @@ import android.graphics.Path;
 import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.Message;
 import android.text.TextPaint;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -17,9 +16,10 @@ import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
-import android.view.ViewConfiguration;
 import android.widget.OverScroller;
 
+import com.example.yanyinan.graphdemo.calculate.CalculateParser;
+import com.example.yanyinan.graphdemo.calculate.ParseResult;
 import com.example.yanyinan.graphdemo.calculate.StringCalculator;
 import com.example.yanyinan.graphdemo.util.DecimalFactory;
 import com.example.yanyinan.graphdemo.util.DisplayUtil;
@@ -72,6 +72,8 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
     //需要显示的函数表达式
     private String mComputeExpression;
 
+    private ParseResult mExpressionParserResult;
+
     /**
      * 屏幕显示的x,y轴的最值
      */
@@ -123,7 +125,7 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         mFunctionPaint.setStyle(Paint.Style.STROKE);
         mFunctionPaint.setColor(Color.RED);
 
-        mComputeExpression = StringCalculator.insetBlanks(mComputeExpression);
+        mExpressionParserResult = CalculateParser.parseFormula(mComputeExpression);
 
         mOverScroller = new OverScroller(getContext());
         mGestureDetector = new GestureDetector(new GestureDetector.OnGestureListener() {
@@ -253,19 +255,23 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
         //最小横坐标对应的纵坐标的值
        // float maxYMath;
         float minAbsYMath;
-        String firstXInput = mComputeExpression.replace(X_VARIABLE, String.valueOf(mMinXMath));
-        Log.d(TAG + "mComputeExpression: ",mComputeExpression);
+//        String firstXInput = mComputeExpression.replace(X_VARIABLE, String.valueOf(mMinXMath));
+//        Log.d(TAG + "mComputeExpression: ",mComputeExpression);
 
-        float yFirstMath = StringCalculator.evaluateExpression(firstXInput);
+        mExpressionParserResult.replaceUnknownVariable(mMinXMath);
+
+        float yFirstMath = StringCalculator.evaluateExpression(mExpressionParserResult);
        // maxYMath = yFirstMath;
         minAbsYMath =  Math.abs(yFirstMath);
 
         //为了加速绘制，每4个像素点进行遍历
         for (int j = 1; j < mWidth; j = j + 1) {
             float xMath = mMinXMath + ((float) j + 1) * (mMaxXMath - mMinXMath) / mWidth;
-            String input = mComputeExpression.replace(X_VARIABLE, String.valueOf(xMath));
+           // String input = mComputeExpression.replace(X_VARIABLE, String.valueOf(xMath));
 
-            yFirstMath = StringCalculator.evaluateExpression(input);
+            mExpressionParserResult.replaceUnknownVariable(xMath);
+
+            yFirstMath = StringCalculator.evaluateExpression(mExpressionParserResult);
 //            if (maxYMath <= yFirstMath) {
 //                maxYMath = yFirstMath;
 //
@@ -432,13 +438,11 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
 
     private void drawGraph(Canvas canvas) {
         canvas.drawColor(Color.WHITE);
-        //   canvas.save();
         //将画布原点移动到坐标系原点
 //        canvas.translate(mWidth / 2, mHeight / 2);
         drawAxis(canvas);
         drawFunction(canvas);
 
-        //   canvas.restore();
     }
 
     /**
@@ -526,8 +530,10 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
      */
     private void drawFunction(Canvas canvas) {
         //最小横坐标对应的纵坐标的值
-        String firstXInput = mComputeExpression.replace("x", String.valueOf(mMinXMath));
-        float yFirstMath = StringCalculator.evaluateExpression(firstXInput);
+      //  String firstXInput = mComputeExpression.replace("x", String.valueOf(mMinXMath));
+
+        mExpressionParserResult.replaceUnknownVariable(mMinXMath);
+        float yFirstMath = StringCalculator.evaluateExpression(mExpressionParserResult);
         float ySecondMath = yFirstMath;
 
         //水平遍历每个像素.y1是前一个点的纵坐标，y2是后一个点的纵坐标，j为横坐标
@@ -544,12 +550,12 @@ public class FunctionGraph extends SurfaceView implements SurfaceHolder.Callback
             //  ySecondMath = Math.sin(mMinXMath + ((double) j + 1) * (mMaxXMath - mMinXMath) / mWidth);
 
             float xMath = mMinXMath + ((float) j) * (mMaxXMath - mMinXMath) / mWidth;
-            String input = mComputeExpression.replace(X_VARIABLE, String.valueOf(xMath));
-
-            Log.d(TAG + "calculate input: ", input);
+          //  String input = mComputeExpression.replace(X_VARIABLE, String.valueOf(xMath));
+            mExpressionParserResult.replaceUnknownVariable(xMath);
+            Log.d(TAG + "calculate input: ", mExpressionParserResult.toString());
 
             long a2 = System.nanoTime();
-            ySecondMath = StringCalculator.evaluateExpression(input);
+            ySecondMath = StringCalculator.evaluateExpression(mExpressionParserResult);
 
             Log.d("calculate Expression", System.nanoTime() - a2 + "");
 
